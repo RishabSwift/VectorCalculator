@@ -1,0 +1,344 @@
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
+      crossorigin="anonymous">
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Vector Calculator with Steps!</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
+          integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+</head>
+<body>
+<div class="container" style="margin-top: 100px">
+
+
+    <h1 class="text-center">
+
+        Vector Components Adder (With Steps!)
+
+    </h1>
+
+
+    <br>
+    <br>
+
+    <div class="text-center">
+
+        <p>
+            This calculator allows you to add two vectors and shows you steps using <b>the component method</b> or the
+            <b>sketch-and-trig method.</b>
+        </p>
+
+        <span class="text-muted">
+            Let's say your vector is <b>26km [N 31º S]</b>, then you can enter...
+            <br>
+            <b>26 N31S</b>
+            <br>
+            <b>26 N 31 S</b>
+            <br>
+            <b>26 N 31º S</b>
+            <br>
+            <b>26 NS</b>
+        </span>
+
+    </div>
+
+    <br>
+    <br>
+
+
+    <div id="alert" class="text-center"></div>
+    <div class="row">
+
+
+        <div class="col-md-5">
+            <div class="form-group">
+                <label for="a">First Vector</label>
+                <input type="text" id="a" name="a" class="form-control" placeholder="25 N 20 W">
+                <small class="form-text text-muted">
+                    The first vector
+                    <br>
+
+                </small>
+
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="form-group">
+                <label for="operation">&nbsp;</label>
+                <select class="form-control" id="operation">
+                    <option name="add">+</option>
+                    <option name="subtract">-</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="form-group">
+                <label for="b">Second Vector</label>
+                <input type="text" id="b" name="b" class="form-control" placeholder="14 E 33 S">
+                <small class="form-text text-muted">The second vector</small>
+            </div>
+        </div>
+
+        <div class="offset-md-5 col-md-2">
+            <button class="btn btn-block btn-primary" id="calculate">Calculate!</button>
+        </div>
+
+    </div>
+
+    <div class="row">
+        <canvas class="col-md-6" id="component-first"></canvas>
+        <canvas class="col-md-6" id="component-second"></canvas>
+    </div>
+
+
+</div>
+
+
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js"></script>
+
+
+<script>
+
+
+    // ----------------------
+    // LOOK AT THIS:
+    // https://p5js.org
+    // ----------------------
+
+
+    var errorMessage = '';
+    var alertType = {error: 'alert alert-danger', success: 'alert alert-success'};
+
+    var firstVectorInput = $('#a');
+    var secondVectorInput = $('#b');
+    var operationInput = $('#operation');
+
+
+    var rawFirstVector, rawSecondVector;
+    var firstVector, secondVector, operation;
+
+    var calculateBtn = $('#calculate');
+
+    var steps = [];
+
+    calculateBtn.click(function (e) {
+
+        e.preventDefault();
+
+        hideAlert();
+
+        operation = operationInput.val();
+
+        rawFirstVector = firstVectorInput.val();
+        rawSecondVector = secondVectorInput.val();
+
+        // If one or both of them is empty
+        if (!rawFirstVector || !rawSecondVector) {
+            errorMessage = 'Please ensure both text fields are filled!';
+            showErrorMessage();
+            return;
+        }
+
+
+        // Parse it [look at the parseInput method for the full overrun]
+        // Break it into four sections: The magnitude, the first direction, the angle number, the second direction
+        // The method parseInput() returns it as an object
+        firstVector = parseInput(firstVectorInput.val(), firstVectorInput);
+
+        if (!firstVector) {
+            showErrorMessage();
+            return;
+        }
+        secondVector = parseInput(secondVectorInput.val(), secondVectorInput);
+
+        if (!secondVector) {
+            showErrorMessage();
+            return;
+        }
+
+        // Now we have all we need. Let's test it out!
+        alert(firstVector.magnitude + ' km ' + firstVector.firstDirection + ' ' + firstVector.angle + 'º ' + firstVector.secondDirection);
+        alert(secondVector.magnitude + ' km ' + secondVector.firstDirection + ' ' + secondVector.angle + 'º ' + secondVector.secondDirection);
+
+        // steps.push(steps_explained.FLIP_SIGNS);
+    });
+
+
+    function parseInput(rawVector, inputElement) {
+
+        // Check if the first character is a number and if there is a space after that – basically check if there's magnitude
+        // If there is none then we cannot proceed!
+        if (!rawVector.match(/^\d/)) {
+            errorMessage = "You must have a magnitude! Please check to make sure both inputs have a magnitude.";
+            return false
+        }
+
+        var numbers = rawVector.match(/\d+\.\d+|\d+\b|\d+(?=\w)/g)
+            .map(function (v) {
+                return +v;
+            });
+
+        // Remove everything except the characters
+        var direction = rawVector.replace(/[^a-zA-Z]+/g, '').split('');
+
+        //todo make this work
+        if (!isValidDirection(direction)) {
+            errorMessage = "Please ensure that you have entered a valid direction!"
+            return false;
+        }
+
+        // If there is one direction and two numbers (magnitude and angle), it's an invalid input
+        if (numbers.length === 2 && direction.length === 1) {
+            errorMessage = "You have specified an angle for a direction but haven't provided the second direction!";
+            return false;
+            // todo highlight the field
+        }
+
+        // If the operation was to subtract, flip the signs
+        if (inputElement.attr('name') === 'b' && operation === '-') {
+            flipDirection(direction);
+        }
+
+
+        // If they only have one number, that means they didn't enter the angle. Perhaps something like [NE]
+        // Of course, since I took math I know that [NE] is the same as [N 45º E], so let's change that
+        if (numbers.length === 1) {
+            // Also if they only enter one direction that means that the line is a straight line. E.g. N or S
+            numbers.push(direction.length === 2 ? 45 : 0)
+        }
+
+
+        // Okay, now we should have two integers total. First is the magnitude and second is the angle
+        // Let's assign the values now
+        return {
+            magnitude: numbers[0],
+            firstDirection: direction[0],
+            secondDirection: typeof direction[1] === 'undefined' ? null : direction[1], // The second dir can be empty so we need to watch out for that
+            angle: numbers[1]
+        }
+    }
+
+    function showErrorMessage() {
+        showAlert(errorMessage, alertType.error);
+    }
+
+    function showAlert(message, type) {
+        $('#alert').html('<div class="' + type + '" role="alert">\n' +
+            message + '\n' +
+            '</div>')
+    }
+
+    function hideAlert() {
+        $('#alert').html('');
+    }
+
+    /**
+     * Check if the direction provided is the valid direction
+     * @param direction
+     * @returns {boolean|*}
+     */
+    function isValidDirection(direction) {
+        return direction.includes('N', 'E', 'S', 'W');
+    }
+
+
+    /**
+     * Flip the direction if the operation is subtraction
+     * @param direction
+     * @returns {*}
+     */
+    function flipDirection(direction) {
+        for (var i = 0; i < direction.length; i++) {
+            switch (direction[i]) {
+                case 'N':
+                    direction[i] = 'S';
+                    break;
+                case 'E':
+                    direction[i] = 'W';
+                    break;
+                case 'S':
+                    direction[i] = 'N';
+                    break;
+                case 'W':
+                    direction[i] = 'E';
+                    break;
+            }
+        }
+
+    }
+
+    // STEPS DESCRIBED
+    steps_explained = {
+        FLIP_SIGNS : 'Flip the signs',
+        FLIP_SIGNS_DESC: 'Convert vector subtraction to vector addition by switching the directions. So, <b>%d</b> becomes <b>%d</b>',
+    }
+
+    var componentFirstCanvas = document.getElementById('component-first');
+    var componentSecondCanvas = document.getElementById('component-second');
+
+    var componentFirst = componentFirstCanvas.getContext("2d");
+    var componentSecond = componentSecondCanvas.getContext("2d");
+
+    componentFirst.moveTo(100, 100);
+
+    //    componentFirst.lineTo(100, 0); // True North
+    //    componentFirst.lineTo(200, 100); // True East
+    //    componentFirst.lineTo(100, 200); // True South
+    //    componentFirst.lineTo(0, 100); // True West
+
+    componentFirst.lineTo(150, 50); // North East or East North
+    //    componentFirst.lineTo(150, 150); // East south or south east
+    //    componentFirst.lineTo(50, 150); // East south or south east
+    //    componentFirst.lineTo(50, 50); // West north or north west
+
+        trueSouthFrom(150, 50);
+    //    trueNorthFrom(150);
+    //    trueWestFrom(50);
+    //    trueEastFrom(50);
+    //    componentFirst.lineTo(70,50);
+    //    componentFirst.fill();
+
+
+    function trueSouthFrom(x) {
+        componentFirst.lineTo(x, 100); // go straight down
+    }
+
+    function trueNorthFrom(x) {
+        componentFirst.lineTo(x, 0); // go straight up
+    }
+
+    function trueWestFrom(y) {
+        componentFirst.lineTo(0, y);
+    }
+
+    function trueEastFrom(x, y) {
+        componentFirst.lineTo(200, y);
+    }
+
+
+    componentFirst.fill();
+//    componentFirst.stroke();
+    //quad 4:
+
+
+</script>
+
+
+</body>
+
+
+</html>
+
+
